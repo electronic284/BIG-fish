@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#f6f7f2">
   <title>大肥鱼 · 你的日常 AI 搭子</title>
   <link rel="stylesheet" href="/styles.css">
+  <script src="/chat-stream.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
@@ -43,7 +44,7 @@
           <div class="attachment" id="attachment" hidden><img id="attachment-preview" alt="待发送图片"><div><strong id="attachment-name"></strong><small>图片将在发送时上传</small></div><button type="button" id="remove-image" aria-label="移除图片">×</button></div>
           <label class="sr-only" for="message-input">输入消息</label>
           <textarea id="message-input" rows="2" placeholder="和大肥鱼说点什么…" maxlength="30000"></textarea>
-          <div class="composer-tools"><div><button type="button" class="icon-button" id="upload-image" aria-label="添加图片" title="添加图片（最大 10 MB）"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></button><span class="input-hint">文字或图片，灵感都接得住</span></div><div><span class="keyboard-hint">Enter 发送 · Shift + Enter 换行</span><button type="submit" class="send-button" id="send-button" aria-label="发送消息" disabled>↑</button></div></div>
+          <div class="composer-tools"><div><button type="button" class="icon-button" id="upload-image" aria-label="添加图片" title="添加图片（最大 10 MB）"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></button><button type="button" class="thinking-toggle" id="deep-thinking" aria-pressed="false" title="开启深度思考，适合复杂问题"><span aria-hidden="true">✧</span> 深度思考</button></div><div><span class="keyboard-hint">Enter 发送 · Shift + Enter 换行</span><button type="submit" class="send-button" id="send-button" aria-label="发送消息" disabled>↑</button></div></div>
           <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
         </form>
         <footer>大肥鱼也在不断学习，重要信息请记得核实。<span>慢慢来，我们一起想。</span></footer>

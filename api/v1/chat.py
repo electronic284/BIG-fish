@@ -16,8 +16,9 @@ def get_chat_threads():
 async def chat_endpoint(request: ChatRequest):
     """流式对话"""
     return StreamingResponse(
-        chat_stream(request.message, request.image_url, request.thread_id),
-        media_type="text/event-stream"
+        chat_stream(request.message, request.image_url, request.thread_id, request.deep_thinking),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 

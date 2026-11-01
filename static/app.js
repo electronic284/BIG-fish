@@ -3,9 +3,12 @@
   const $ = id => document.getElementById(id);
   const STORAGE = 'big-fish.sessions.v1';
   const ACTIVE = 'big-fish.active.v1';
+  const THINKING = 'big-fish.deep-thinking.v1';
   const uuid = () => globalThis.crypto?.randomUUID?.() || `fish-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   let sessions = [], activeId, busy = false, loading = false, syncing = false, controller, historyController;
   let selectedImage = null, previewUrl = null, loadVersion = 0;
+  let deepThinking = false;
+  try { deepThinking = localStorage.getItem(THINKING) === 'true'; } catch { /* Optional preference. */ }
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE) || '[]');
     if (Array.isArray(saved)) sessions = saved.filter(s => s && typeof s.id === 'string' && typeof s.title === 'string');
@@ -51,6 +54,9 @@
     $('send-button').setAttribute('aria-label', busy ? '停止接收回复' : '发送消息');
     $('send-button').title = busy ? '停止接收（后端可能仍在生成）' : '发送消息';
     $('upload-image').disabled = busy || loading || syncing;
+    $('deep-thinking').disabled = busy;
+    $('deep-thinking').setAttribute('aria-pressed', String(deepThinking));
+    $('deep-thinking').title = deepThinking ? '已开启深度思考，回复可能需要更长时间' : '开启深度思考，适合复杂问题';
     $('remove-image').disabled = busy;
     $('message-input').disabled = busy;
     $('new-chat').disabled = busy || syncing;
@@ -88,7 +94,7 @@
     }
     return parts;
   }
-  function addMessage(role, content, pending = false) {
+  function addMessage(role, content, pending = false, reasoning = '') {
     showMessages();
     const parts = contentParts(content);
     const row = document.createElement('article'); row.className = `message ${role}`;
@@ -96,6 +102,11 @@
     const main = document.createElement('div'); main.className = 'message-main';
     const meta = document.createElement('div'); meta.className = 'message-meta'; meta.textContent = role === 'user' ? '你' : '大肥鱼';
     const body = document.createElement('div'); body.className = 'message-content';
+    const thoughts = document.createElement('details'); thoughts.className = 'thinking-panel'; thoughts.hidden = !reasoning;
+    const thoughtLabel = document.createElement('summary'); thoughtLabel.textContent = '思考过程';
+    const thoughtText = document.createElement('div'); thoughtText.className = 'thinking-content'; thoughtText.textContent = reasoning;
+    thoughts.append(thoughtLabel, thoughtText);
+    if (role === 'assistant') body.append(thoughts);
     const text = document.createElement('div'); text.classList.toggle('pending', pending); renderText(text, parts.text);
     for (const url of parts.images) { const img = document.createElement('img'); img.src = url; img.alt = '消息中的图片'; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer'; body.append(img); }
     body.append(text);
@@ -108,7 +119,7 @@
     }
     const status = document.createElement('div'); status.className = 'message-status';
     main.append(meta, body, status); row.append(avatar, main); $('messages').append(row);
-    return { text, status, row };
+    return { text, status, row, thoughts, thoughtLabel, thoughtText };
   }
   async function checkedFetch(url, options = {}) {
     const response = await fetch(url, options);
@@ -149,7 +160,7 @@
       const data = await response.json();
       if (version !== loadVersion) return;
       if (!Array.isArray(data.messages)) throw new Error('历史消息格式不正确');
-      for (const message of data.messages) if (['user', 'assistant'].includes(message.role)) addMessage(message.role, message.content);
+      for (const message of data.messages) if (['user', 'assistant'].includes(message.role)) addMessage(message.role, message.content, false, message.reasoning || '');
       $('welcome').hidden = $('messages').childElementCount > 0;
       notice(''); scrollBottom(true);
     } catch (error) {
@@ -180,30 +191,46 @@
     const message = prompt || '请帮我看看这张图片。';
     const file = selectedImage;
     busy = true; controller = new AbortController(); updateControls(); renderSessions(); notice('');
-    let reply, submitted = false, output = '';
+    let reply, submitted = false, output = '', reasoning = '', completed = false;
     try {
       let imageUrl = null;
       if (file) { notice('正在上传图片…'); imageUrl = await uploadImage(file, controller.signal); notice(''); }
       addMessage('user', imageUrl ? [{ type: 'image', url: imageUrl }, { type: 'text', text: message }] : message);
       reply = addMessage('assistant', '', true); scrollBottom(true);
+      if (deepThinking) {
+        reply.thoughts.hidden = false; reply.thoughts.open = true;
+        reply.thoughtLabel.textContent = '正在深度思考…';
+        reply.text.classList.remove('pending');
+      }
       const session = sessions.find(s => s.id === activeId);
       if (session.title === '新的对话') { session.title = message.slice(0, 24); persist(); renderSessions(); }
       submitted = true;
       $('message-input').value = ''; $('message-input').style.height = ''; resetImage();
       const response = await checkedFetch('/api/v1/chat/stream', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, image_url: imageUrl, thread_id: activeId }), signal: controller.signal
+        body: JSON.stringify({ message, image_url: imageUrl, thread_id: activeId, deep_thinking: deepThinking }), signal: controller.signal
       });
       if (!response.body) throw new Error('浏览器不支持流式响应');
-      const reader = response.body.getReader(); const decoder = new TextDecoder('utf-8');
-      // Backend declares text/event-stream but yields raw text, without SSE data: frames.
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        output += decoder.decode(value, { stream: true });
-        renderText(reply.text, output); scrollBottom();
+      for await (const event of readChatEvents(response.body)) {
+        if (event.type === 'reasoning') {
+          reasoning += event.content;
+          reply.thoughts.hidden = false; reply.thoughts.open = true;
+          reply.thoughtLabel.textContent = '正在深度思考…';
+          reply.thoughtText.textContent = reasoning;
+        } else if (event.type === 'answer') {
+          if (!output) {
+            reply.thoughtLabel.textContent = '思考过程'; reply.thoughts.open = false;
+            reply.thoughts.hidden = !reasoning;
+          }
+          output += event.content; renderText(reply.text, output);
+        } else if (event.type === 'error') {
+          throw new Error(event.content);
+        } else if (event.type === 'done') {
+          completed = true;
+        }
+        scrollBottom();
       }
-      output += decoder.decode(); renderText(reply.text, output);
+      if (!completed) throw new Error('连接提前结束');
       if (!output.trim()) reply.status.textContent = '没有收到回复，请稍后重新尝试。';
     } catch (error) {
       const stopped = error.name === 'AbortError';
@@ -212,6 +239,10 @@
       if (submitted && !stopped) notice('发送失败或连接中断，输入框已恢复原消息；重新发送前可先检查历史，避免重复。');
       if (submitted && !stopped) $('message-input').value = prompt;
     } finally {
+      if (reply) {
+        reply.thoughtLabel.textContent = completed ? '思考过程' : '思考已中断';
+        reply.thoughts.hidden = !reasoning;
+      }
       reply?.text.classList.remove('pending'); busy = false; controller = null; updateControls(); renderSessions(); $('message-input').focus();
     }
   });
@@ -222,6 +253,12 @@
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) { event.preventDefault(); if (!busy) $('chat-form').requestSubmit(); }
   });
   $('upload-image').addEventListener('click', () => $('image-input').click());
+  $('deep-thinking').addEventListener('click', () => {
+    if (busy) return;
+    deepThinking = !deepThinking;
+    try { localStorage.setItem(THINKING, String(deepThinking)); } catch { /* Still usable without storage. */ }
+    updateControls();
+  });
   $('image-input').addEventListener('change', () => {
     const file = $('image-input').files[0]; if (!file) return;
     if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) { notice('请选择 JPG、PNG、GIF 或 WebP 图片。'); $('image-input').value = ''; return; }
