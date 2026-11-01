@@ -218,3 +218,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local project credentials, chat history, and editor settings
+.env.*
+!.env.example
+.idea/
+.vscode/
+checkpoints.db*
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal

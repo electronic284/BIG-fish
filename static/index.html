@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7f2">
+  <title>大肥鱼 · 你的日常 AI 搭子</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="会话导航">
+      <a class="brand" href="/" aria-label="大肥鱼首页"><span class="fish-mark">><span>●</span></span><span>大肥鱼<small>PERSONAL CHIEF</small></span></a>
+      <button class="new-chat" id="new-chat"><span>＋</span> 开启新对话 <kbd>NEW</kbd></button>
+      <div class="section-label">我的对话 <span><span id="session-count">0</span> <button id="refresh-sessions" class="copy-button" aria-label="刷新会话列表" title="从后端刷新会话列表">↻</button></span></div>
+      <nav class="sessions" id="sessions" aria-label="历史会话"></nav>
+      <div class="sidebar-bottom"><span class="avatar">我</span><div>我的空间<small>让灵感自在游动</small></div><span class="mini-fish">◒</span></div>
+    </aside>
+    <button class="backdrop" id="backdrop" aria-label="关闭会话导航" hidden></button>
+    <main>
+      <header class="topbar">
+        <div class="topbar-left"><button class="icon-button menu-button" id="menu-toggle" aria-label="打开会话导航" aria-expanded="false">☰</button><span class="page-title" id="page-title">新的对话</span><span class="model-badge">AI 助手</span></div>
+        <button class="clear-button" id="clear-chat" title="清空当前会话的消息">清空对话 <span aria-hidden="true">↺</span></button>
+      </header>
+      <div class="conversation" id="conversation">
+        <section class="welcome" id="welcome">
+          <div class="eyebrow"><span></span> YOUR EVERYDAY COMPANION</div>
+          <div class="hero-fish" aria-hidden="true"><svg viewBox="0 0 160 110" fill="none"><path d="M47 49 18 28v56l29-20" fill="#bbd49e"/><ellipse cx="91" cy="57" rx="51" ry="37" fill="#dbe8c8"/><path d="M77 22q15-25 32 1M75 90q12 17 28-1" fill="#b2ca93"/><circle cx="118" cy="50" r="4" fill="#3e5639"/><path d="M115 64q9 6 15-3" stroke="#3e5639" stroke-width="2.5" stroke-linecap="round"/><path d="M69 47q-10 11 0 22" stroke="#a3bc87" stroke-width="3" stroke-linecap="round"/><circle cx="149" cy="18" r="5" stroke="#b2ca93" stroke-width="2"/><circle cx="139" cy="5" r="2.5" fill="#dbe8c8"/></svg></div>
+          <h1>嗨，今天想聊点什么？</h1>
+          <p>我是大肥鱼，你的日常 AI 搭子。<br>一个问题、一点灵感，或是今天的小小烦恼，都可以告诉我。</p>
+          <div class="suggestions">
+            <button data-prompt="帮我规划一份简单、营养均衡的一周晚餐菜单。"><span class="suggestion-icon">♧</span><strong>今天吃什么</strong><span>给日常餐桌一点新灵感</span><i>↗</i></button>
+            <button data-prompt="我想开始一个新的学习计划，请先问我几个问题，帮我找到适合的节奏。"><span class="suggestion-icon">✧</span><strong>一起想点子</strong><span>把一个小想法慢慢展开</span><i>↗</i></button>
+            <button data-prompt="我想和你聊聊今天发生的事情。"><span class="suggestion-icon">☼</span><strong>随便聊聊</strong><span>说说今天，或任何你想说的</span><i>↗</i></button>
+          </div>
+        </section>
+        <section class="messages" id="messages" aria-label="聊天消息" aria-busy="false" hidden></section>
+      </div>
+      <div class="composer-area">
+        <div class="notice" id="notice" role="status" hidden><span id="notice-text"></span><button id="retry-history" hidden>重新加载</button><button id="dismiss-notice" aria-label="关闭提示">×</button></div>
+        <form class="composer" id="chat-form">
+          <div class="attachment" id="attachment" hidden><img id="attachment-preview" alt="待发送图片"><div><strong id="attachment-name"></strong><small>图片将在发送时上传</small></div><button type="button" id="remove-image" aria-label="移除图片">×</button></div>
+          <label class="sr-only" for="message-input">输入消息</label>
+          <textarea id="message-input" rows="2" placeholder="和大肥鱼说点什么…" maxlength="30000"></textarea>
+          <div class="composer-tools"><div><button type="button" class="icon-button" id="upload-image" aria-label="添加图片" title="添加图片（最大 10 MB）"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></button><span class="input-hint">文字或图片，灵感都接得住</span></div><div><span class="keyboard-hint">Enter 发送 · Shift + Enter 换行</span><button type="submit" class="send-button" id="send-button" aria-label="发送消息" disabled>↑</button></div></div>
+          <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+        </form>
+        <footer>大肥鱼也在不断学习，重要信息请记得核实。<span>慢慢来，我们一起想。</span></footer>
+      </div>
+    </main>
+  </div>
+  <dialog id="clear-dialog"><form method="dialog"><span class="dialog-icon">↺</span><h2>清空这段对话？</h2><p>当前会话的历史消息将从后端删除，无法恢复。</p><div class="dialog-actions"><button value="cancel">再想想</button><button class="confirm-button" value="confirm">确认清空</button></div></form></dialog>
+</body>
+</html>
